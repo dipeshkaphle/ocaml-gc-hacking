@@ -37,14 +37,14 @@ BDWGC=../ocaml-4.14-bdwgc/runtime/ocamlrun
 UNCHANGED=../ocaml-4.14-unchanged/runtime/ocamlrun
 
 nbodies.bench: nbodies.byte
-	hyperfine --export $@.csv \
+	hyperfine --export-csv $@.csv \
 		'$(HACKED_GC) nbodies.byte 100000' \
 		'$(BDWGC) nbodies.byte 100000' \
 		'$(UNCHANGED) nbodies.byte 100000'
 
 binarytrees.bench: binarytrees.byte
 	MIN_EXPANSION_WORDSIZE=134217728 \
-	hyperfine --export $@.csv \
+	hyperfine --export-csv $@.csv \
 		'$(HACKED_GC) binarytrees.byte 16' \
 		'$(BDWGC) binarytrees.byte 16' \
 		'$(UNCHANGED) binarytrees.byte 16' \
@@ -70,27 +70,27 @@ mandelbrot.bench: mandelbrot.byte
 
 fasta.bench: fasta.byte
 	MIN_EXPANSION_WORDSIZE=$$((134217728 / 4)) \
-	hyperfine --export $@.csv \
+	hyperfine --export-csv $@.csv \
 		'$(HACKED_GC) fasta.byte 5_000_000' \
 		'$(BDWGC) fasta.byte 5_000_000' \
 		'$(UNCHANGED) fasta.byte 5_000_000' \
 
 count_change.bench: count_change.byte
 	MIN_EXPANSION_WORDSIZE=20000000 \
-	hyperfine --export $@.csv \
+	hyperfine --export-csv $@.csv \
 		'$(HACKED_GC) count_change.byte 200' \
 		'$(BDWGC) count_change.byte 200' \
 		'$(UNCHANGED) count_change.byte 200'
 
 fannkuchredux.bench: fannkuchredux.byte
-	hyperfine --export $@.csv \
+	hyperfine --export-csv $@.csv \
 		'$(HACKED_GC) fannkuchredux.byte 10' \
 		'$(BDWGC) fannkuchredux.byte 10' \
 		'$(UNCHANGED) fannkuchredux.byte 10' \
 
 quicksort.bench: quicksort.byte
 	MIN_EXPANSION_WORDSIZE=8000000 \
-	hyperfine --export $@.csv \
+	hyperfine --export-csv $@.csv \
 		'$(HACKED_GC) quicksort.byte 2_500_000' \
 		'$(BDWGC) quicksort.byte 2_500_000' \
 		'$(UNCHANGED) quicksort.byte 2_500_000'
@@ -98,17 +98,17 @@ quicksort.bench: quicksort.byte
 cpdf.bench: cpdf-unchanged cpdf-bdwgc cpdf-vergc
 	MIN_EXPANSION_WORDSIZE=134217728 \
 	hyperfine --export-csv $@.csv \
-		'./cpdf/cpdf-vergc -blacktext metro_geo.pdf -o /dev/null' \
-		'./cpdf/cpdf-bdwgc -blacktext metro_geo.pdf -o /dev/null' \
-		'./cpdf/cpdf-unchanged -blacktext metro_geo.pdf -o /dev/null'
+		'./cpdf-src/cpdf-vergc -blacktext metro_geo.pdf -o /dev/null' \
+		'./cpdf-src/cpdf-bdwgc -blacktext metro_geo.pdf -o /dev/null' \
+		'./cpdf-src/cpdf-unchanged -blacktext metro_geo.pdf -o /dev/null'
 
 .PHONY: %.bench
 
-bench: nbodies.bench binarytrees.bench fasta.bench count_change.bench fannkuchredux.bench quicksort.bench
+bench: nbodies.bench binarytrees.bench fasta.bench count_change.bench fannkuchredux.bench quicksort.bench cpdf.bench
 
 cpdf-src:
 	git clone https://github.com/johnwhitington/cpdf-source $@
-	cd $@; git checkout v2.6.2
+	cd $@; git checkout v2.6.2; opam install . --deps-only
 
 cpdf-src-clean:
 	rm -rf cpdf-src
@@ -135,11 +135,13 @@ cpdf-unchanged: cpdf-src
 	MIN_EXPANSION_WORDSIZE=134217728 cpdf-src/cpdf-unchanged -merge $</*.pdf -o /dev/null
 
 ydump:
-	# opam dependencies fetching is expected to be done manually
 	PWD=$(shell pwd)
-	cd yojson; HACKED_GC_PATH=$(PWD)/../ocaml-4.14-hacked-gc/ dune build ydump.bc
+	cd yojson; opam install yojson camlp-streams; HACKED_GC_PATH=$(PWD)/../ocaml-4.14-hacked-gc/ dune build ydump.bc
 	# triggers a few gc cycles too
 	MIN_EXPANSION_WORDSIZE=8388608 $(HACKED_GC) yojson/_build/default/ydump.bc -c yojson/sample.json
 
 clean:
 	rm -f *.cmi *.cmo *.cmx *.o *.byte
+
+clean-csvs:
+	rm *.csv
